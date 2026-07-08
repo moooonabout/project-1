@@ -1,13 +1,13 @@
 :root {
-  --sky-start: #4facfe;
-  --sky-end: #00c6fb;
-  --text-dark: #1a2332;
-  --text-muted: #5c6b7a;
-  --bg-light: #f6fbff;
-  --card-bg: #ffffff;
-  --accent: #ff9f43;
-  --radius: 16px;
-  --shadow: 0 8px 24px rgba(26, 35, 50, 0.08);
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --text-muted: #71717a;
+  --accent: #2f6fed;
+  --accent-soft: #eef3fe;
+  --radius: 10px;
+  --error: #d64545;
 }
 
 * {
@@ -19,9 +19,10 @@
 body {
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Malgun Gothic", sans-serif;
-  color: var(--text-dark);
-  background: var(--bg-light);
+  color: var(--text);
+  background: var(--bg);
   line-height: 1.6;
+  letter-spacing: -0.01em;
 }
 
 a {
@@ -30,111 +31,111 @@ a {
 }
 
 .hero {
-  background: linear-gradient(135deg, var(--sky-start), var(--sky-end));
-  color: #fff;
-  padding: 24px 24px 90px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 24px 24px 40px;
 }
 
 .nav {
-  max-width: 1000px;
+  max-width: 900px;
   margin: 0 auto;
   display: flex;
   align-items: center;
-  padding: 12px 0 50px;
+  padding: 8px 0 44px;
 }
 
 .logo {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .hero-content {
-  max-width: 700px;
+  max-width: 640px;
   margin: 0 auto;
   text-align: center;
 }
 
 .hero-content h1 {
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 800;
-  margin-bottom: 16px;
+  font-size: clamp(1.6rem, 4vw, 2.3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
 }
 
 .subtitle {
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  opacity: 0.92;
+  font-size: clamp(0.9rem, 2vw, 1rem);
+  color: var(--text-muted);
 }
 
 .btn-primary {
   display: inline-block;
   background: var(--accent);
   color: #fff;
-  font-weight: 700;
-  padding: 14px 32px;
-  border-radius: 999px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 8px;
   border: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(255, 159, 67, 0.4);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px rgba(255, 159, 67, 0.5);
+  background: #2158c4;
 }
 
 main {
-  max-width: 900px;
-  margin: -60px auto 0;
-  padding: 0 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 24px 0;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 24px;
 }
 
 .search-section,
 .mylocation-section,
 .favorites-section {
-  background: var(--card-bg);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
-  padding: 28px;
-}
-
-.search-section {
-  padding-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
 }
 
 .mylocation-section h2,
 .favorites-section h2 {
-  font-size: 1.15rem;
-  margin-bottom: 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 16px;
 }
 
 /* ---------- Search ---------- */
 .search-form {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 #city-input {
   flex: 1 1 260px;
-  padding: 14px 20px;
-  border-radius: 999px;
-  border: 1px solid #d7e3ee;
-  font-size: 1rem;
+  padding: 11px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  font-family: inherit;
+  letter-spacing: inherit;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 #city-input:focus {
-  border-color: var(--sky-start);
+  border-color: var(--accent);
 }
 
 .result {
-  margin-top: 20px;
+  margin-top: 18px;
 }
 
 .result:empty {
@@ -146,51 +147,55 @@ main {
 .loading {
   color: var(--text-muted);
   text-align: center;
-  padding: 24px 0;
+  padding: 20px 0;
+  font-size: 0.9rem;
 }
 
 .empty-state {
   color: var(--text-muted);
   text-align: center;
-  padding: 24px 0;
+  padding: 20px 0;
+  font-size: 0.9rem;
 }
 
 .fallback-note {
   color: var(--text-muted);
-  font-size: 0.9rem;
-  margin-bottom: 16px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
 }
 
 .retry-btn {
   background: none;
-  border: 1px solid var(--sky-end);
-  color: var(--sky-end);
+  border: 1px solid var(--accent);
+  color: var(--accent);
   border-radius: 999px;
-  padding: 4px 14px;
-  font-size: 0.85rem;
+  padding: 3px 12px;
+  font-size: 0.8rem;
+  font-family: inherit;
   cursor: pointer;
 }
 
 .result .error,
 .error {
-  color: #d64545;
-  font-weight: 600;
+  color: var(--error);
+  font-weight: 500;
   text-align: center;
+  font-size: 0.9rem;
 }
 
 /* ---------- Weather row (left: forecast / right: live cam) ---------- */
 .weather-row {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: stretch;
-  border: 1px solid #e1eef8;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, #eaf6ff, #ffffff);
-  padding: 22px;
+  background: var(--surface);
+  padding: 20px;
 }
 
 .weather-row + .weather-row {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .weather-info {
@@ -206,47 +211,49 @@ main {
 }
 
 .weather-info .place {
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   margin-bottom: 8px;
 }
 
 .temp-line {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .temp-line .emoji {
-  font-size: 2rem;
+  font-size: 1.6rem;
 }
 
 .temp-line .temp {
-  font-size: 1.9rem;
-  font-weight: 800;
-  color: var(--sky-end);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .weather-info .desc {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   margin-top: 4px;
 }
 
 .row-actions {
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 12px;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .fav-btn {
   background: none;
-  border: 1px solid #d7e3ee;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 0.85rem;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-family: inherit;
   cursor: pointer;
   color: var(--text-muted);
   white-space: nowrap;
@@ -255,25 +262,27 @@ main {
 .fav-btn.is-fav {
   border-color: var(--accent);
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .remove-btn {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-family: inherit;
   text-decoration: underline;
   cursor: pointer;
 }
 
 .cam-embed {
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   background: #000;
   position: relative;
   height: 100%;
-  min-height: 160px;
+  min-height: 150px;
+  border: 1px solid var(--border);
 }
 
 .cam-embed iframe {
@@ -290,22 +299,23 @@ main {
   left: 8px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 0.75rem;
-  padding: 4px 10px;
+  font-size: 0.72rem;
+  padding: 3px 9px;
   border-radius: 999px;
 }
 
 .cam-placeholder {
   height: 100%;
-  min-height: 160px;
+  min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  border-radius: 12px;
-  background: #f1f6fa;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   padding: 14px;
 }
 
@@ -313,17 +323,14 @@ main {
   text-align: center;
   padding: 40px 24px 32px;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 640px) {
-  main {
-    margin-top: -40px;
-  }
   .weather-row {
     flex-direction: column;
   }
   .row-actions {
-    padding-top: 12px;
+    padding-top: 10px;
   }
 }
