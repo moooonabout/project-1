@@ -81,7 +81,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function weatherCardHtml(place, weather, { showFavButton = false, isFavorited = false } = {}) {
+function weatherRowHtml(place, weather, { showFavButton = false, isFavorited = false, showRemove = false } = {}) {
   const [desc, emoji] = WEATHER_CODES[weather.weathercode] || ["알 수 없음", "🌡️"];
   const cam = findCam(place);
   const camHtml = cam
@@ -103,18 +103,22 @@ function weatherCardHtml(place, weather, { showFavButton = false, isFavorited = 
       </button>`
     : "";
 
+  const removeBtn = showRemove
+    ? `<button class="remove-btn" data-id="${locationId(place)}">즐겨찾기에서 삭제</button>`
+    : "";
+
   return `
-    <div class="weather-card" data-id="${locationId(place)}">
-      <div class="weather-card-header">
-        <div class="emoji">${emoji}</div>
-        <div>
-          <div class="place">${escapeHtml(locationLabel(place))}</div>
-          <div class="temp">${Math.round(weather.temperature)}°C</div>
-          <div class="desc">${desc} · 풍속 ${weather.windspeed} km/h</div>
+    <div class="weather-row" data-id="${locationId(place)}">
+      <div class="weather-info">
+        <div class="place">${escapeHtml(locationLabel(place))}</div>
+        <div class="temp-line">
+          <span class="emoji">${emoji}</span>
+          <span class="temp">${Math.round(weather.temperature)}°C</span>
         </div>
-        ${favBtn}
+        <div class="desc">${desc} · 풍속 ${weather.windspeed} km/h</div>
+        <div class="row-actions">${favBtn}${removeBtn}</div>
       </div>
-      ${camHtml}
+      <div class="weather-cam">${camHtml}</div>
     </div>
   `;
 }
@@ -153,34 +157,11 @@ function ensureSeedFavorite() {
   }
 }
 
-// ---------- 탭 전환 ----------
-const tabButtons = document.querySelectorAll(".tab-btn");
-const panels = {
-  mylocation: document.getElementById("panel-mylocation"),
-  favorites: document.getElementById("panel-favorites"),
-  search: document.getElementById("panel-search"),
-};
+// ---------- 내 위치 ----------
+const myLocationPanel = document.getElementById("panel-mylocation");
 
-tabButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    tabButtons.forEach((b) => {
-      b.classList.remove("active");
-      b.setAttribute("aria-selected", "false");
-    });
-    btn.classList.add("active");
-    btn.setAttribute("aria-selected", "true");
-
-    Object.values(panels).forEach((p) => p.classList.add("hidden"));
-    const target = panels[btn.dataset.tab];
-    target.classList.remove("hidden");
-
-    if (btn.dataset.tab === "favorites") renderFavorites();
-  });
-});
-
-// ---------- 내 위치 탭 ----------
 async function loadMyLocation() {
-  const panel = panels.mylocation;
+  const panel = myLocationPanel;
   panel.innerHTML = `<div class="panel-loading">위치를 확인하는 중...</div>`;
 
   if (!navigator.geolocation) {
@@ -193,7 +174,7 @@ async function loadMyLocation() {
       try {
         const place = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
         const weather = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-        panel.innerHTML = weatherCardHtml(place, weather, {
+        panel.innerHTML = weatherRowHtml(place, weather, {
           showFavButton: true,
           isFavorited: isFavorited(place),
         });
@@ -210,12 +191,12 @@ async function loadMyLocation() {
 }
 
 async function showMyLocationFallback() {
-  const panel = panels.mylocation;
+  const panel = myLocationPanel;
   try {
     const weather = await fetchWeather(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
     panel.innerHTML = `
       <p class="fallback-note">위치 권한이 없어 기본 도시로 표시하고 있어요. <button class="retry-btn" id="retry-location">다시 시도</button></p>
-      ${weatherCardHtml(DEFAULT_LOCATION, weather, { showFavButton: true, isFavorited: isFavorited(DEFAULT_LOCATION) })}
+      ${weatherRowHtml(DEFAULT_LOCATION, weather, { showFavButton: true, isFavorited: isFavorited(DEFAULT_LOCATION) })}
     `;
     document.getElementById("retry-location").addEventListener("click", loadMyLocation);
     bindFavButtons(panel, DEFAULT_LOCATION);
@@ -232,38 +213,34 @@ function bindFavButtons(container, place) {
     const nowFav = isFavorited(place);
     btn.classList.toggle("is-fav", nowFav);
     btn.textContent = nowFav ? "⭐ 즐겨찾기됨" : "☆ 즐겨찾기 추가";
+    renderFavorites();
   });
 }
 
-// ---------- 즐겨찾기 탭 ----------
+// ---------- 즐겨찾기 ----------
 async function renderFavorites() {
   const list = getFavorites();
   const container = document.getElementById("favorites-list");
 
   if (list.length === 0) {
-    container.innerHTML = `<p class="empty-state">즐겨찾기한 위치가 없어요. 검색 탭에서 추가해보세요.</p>`;
+    container.innerHTML = `<p class="empty-state">즐겨찾기한 위치가 없어요. 위 검색창에서 추가해보세요.</p>`;
     return;
   }
 
   container.innerHTML = list.map(() => `<div class="panel-loading">불러오는 중...</div>`).join("");
 
-  const cards = await Promise.all(
+  const rows = await Promise.all(
     list.map(async (place) => {
       try {
         const weather = await fetchWeather(place.latitude, place.longitude);
-        return `
-          <div class="favorite-item">
-            ${weatherCardHtml(place, weather)}
-            <button class="remove-btn" data-id="${locationId(place)}">즐겨찾기에서 삭제</button>
-          </div>
-        `;
+        return weatherRowHtml(place, weather, { showRemove: true });
       } catch {
         return `<p class="error">${escapeHtml(locationLabel(place))} 날씨를 불러오지 못했어요.</p>`;
       }
     })
   );
 
-  container.innerHTML = cards.join("");
+  container.innerHTML = rows.join("");
   container.querySelectorAll(".remove-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const remaining = getFavorites().filter((f) => locationId(f) !== btn.dataset.id);
@@ -273,7 +250,7 @@ async function renderFavorites() {
   });
 }
 
-// ---------- 검색 탭 ----------
+// ---------- 검색 ----------
 const searchForm = document.getElementById("search-form");
 const cityInput = document.getElementById("city-input");
 const searchResult = document.getElementById("search-result");
@@ -292,7 +269,7 @@ searchForm.addEventListener("submit", async (e) => {
       return;
     }
     const weather = await fetchWeather(place.latitude, place.longitude);
-    searchResult.innerHTML = weatherCardHtml(place, weather, {
+    searchResult.innerHTML = weatherRowHtml(place, weather, {
       showFavButton: true,
       isFavorited: isFavorited(place),
     });
@@ -305,3 +282,4 @@ searchForm.addEventListener("submit", async (e) => {
 // ---------- 초기화 ----------
 ensureSeedFavorite();
 loadMyLocation();
+renderFavorites();
