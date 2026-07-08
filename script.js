@@ -86,7 +86,7 @@ const CURATED_LOCATIONS = [
     latitude: 35.6595,
     longitude: 139.7005,
     keywords: ["시부야", "shibuya"],
-    cam: null,
+    cam: { videoId: "dfVK7ld38Ys", label: "시부야 스크램블 실시간 라이브" },
   },
   {
     type: "landmark",
@@ -153,6 +153,25 @@ async function geocodeSuggestions(city) {
     longitude: r.longitude,
     cam: undefined,
   }));
+}
+
+// 도시 지오코더(Open-Meteo)에는 없는 랜드마크(도쿄타워 같은 명소)를 찾기 위한
+// OpenStreetMap Nominatim 폴백이에요. 자동완성(타이핑 중)에는 쓰지 않고,
+// 검색을 실제로 실행했을 때만 한 번 호출해서 요청 빈도를 낮게 유지해요.
+async function geocodeLandmark(query) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+    query
+  )}&format=json&limit=1&namedetails=1&accept-language=ko`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!data || data.length === 0) return null;
+  const r = data[0];
+  return {
+    name: r.namedetails?.name || r.display_name.split(",")[0],
+    label: r.display_name,
+    latitude: parseFloat(r.lat),
+    longitude: parseFloat(r.lon),
+  };
 }
 
 async function reverseGeocode(lat, lon) {
@@ -501,12 +520,20 @@ searchForm.addEventListener("submit", async (e) => {
   }
 
   searchResult.innerHTML = `<p class="loading">날씨를 확인하는 중...</p>`;
-  const place = await geocodeByName(city).catch(() => null);
-  if (!place) {
-    searchResult.innerHTML = `<p class="error">"${escapeHtml(city)}"을(를) 찾을 수 없어요. 다른 이름으로 시도해보세요.</p>`;
+
+  const cityPlace = await geocodeByName(city).catch(() => null);
+  if (cityPlace) {
+    await renderSearchResult(cityPlace, undefined);
     return;
   }
-  await renderSearchResult(place, undefined);
+
+  const landmarkPlace = await geocodeLandmark(city).catch(() => null);
+  if (landmarkPlace) {
+    await renderSearchResult(landmarkPlace, undefined);
+    return;
+  }
+
+  searchResult.innerHTML = `<p class="error">"${escapeHtml(city)}"을(를) 찾을 수 없어요. 다른 이름으로 시도해보세요.</p>`;
 });
 
 // ---------- 초기화 ----------
