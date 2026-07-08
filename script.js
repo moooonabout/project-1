@@ -32,7 +32,7 @@ const CURATED_LOCATIONS = [
     latitude: 37.5665,
     longitude: 126.978,
     keywords: ["서울", "seoul"],
-    cam: { videoId: "zuWxsbV-mlA", label: "광화문대로 실시간 라이브" },
+    cam: { videoId: "cl87UIF0VqI", label: "경복궁 실시간 라이브" },
   },
   {
     type: "city",
@@ -59,7 +59,7 @@ const CURATED_LOCATIONS = [
     latitude: 37.5759,
     longitude: 126.9769,
     keywords: ["광화문", "광화문광장", "gwanghwamun"],
-    cam: { videoId: "zuWxsbV-mlA", label: "광화문대로 실시간 라이브" },
+    cam: { videoId: "cl87UIF0VqI", label: "경복궁 실시간 라이브" },
   },
   {
     type: "landmark",
@@ -161,7 +161,10 @@ async function reverseGeocode(lat, lon) {
     const res = await fetch(url);
     const data = await res.json();
     const name = data.city || data.locality || data.principalSubdivision || "내 위치";
-    const label = [name, data.principalSubdivision, data.countryName].filter(Boolean).join(", ");
+    const parts = [name, data.principalSubdivision, data.countryName].filter(
+      (part, idx, arr) => part && arr.indexOf(part) === idx
+    );
+    const label = parts.join(", ");
     return { name, country: data.countryName, label, latitude: lat, longitude: lon };
   } catch {
     return { name: "내 위치", label: "내 위치", latitude: lat, longitude: lon };
