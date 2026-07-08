@@ -36,21 +36,12 @@ const CURATED_LOCATIONS = [
   },
   {
     type: "city",
-    name: "도쿄",
-    label: "도쿄, 일본",
-    latitude: 35.6762,
-    longitude: 139.6503,
-    keywords: ["도쿄", "tokyo"],
+    name: "부산",
+    label: "부산, 대한민국",
+    latitude: 35.1796,
+    longitude: 129.0756,
+    keywords: ["부산", "busan"],
     cam: null,
-  },
-  {
-    type: "city",
-    name: "뉴욕",
-    label: "뉴욕, 미국",
-    latitude: 40.7128,
-    longitude: -74.006,
-    keywords: ["뉴욕", "new york", "nyc"],
-    cam: { videoId: "z-jYdOIKcTQ", label: "타임스퀘어 실시간 라이브" },
   },
   {
     type: "landmark",
@@ -81,21 +72,48 @@ const CURATED_LOCATIONS = [
   },
   {
     type: "landmark",
-    name: "시부야 스크램블",
-    label: "시부야 스크램블, 도쿄",
-    latitude: 35.6595,
-    longitude: 139.7005,
-    keywords: ["시부야", "shibuya"],
-    cam: { videoId: "dfVK7ld38Ys", label: "시부야 스크램블 실시간 라이브" },
+    name: "홍대",
+    label: "홍대, 서울",
+    latitude: 37.5563,
+    longitude: 126.9238,
+    keywords: ["홍대", "hongdae"],
+    cam: null,
   },
   {
     type: "landmark",
-    name: "타임스퀘어",
-    label: "타임스퀘어, 뉴욕",
-    latitude: 40.758,
-    longitude: -73.9855,
-    keywords: ["타임스퀘어", "times square"],
-    cam: { videoId: "z-jYdOIKcTQ", label: "타임스퀘어 실시간 라이브" },
+    name: "이태원",
+    label: "이태원, 서울",
+    latitude: 37.5344,
+    longitude: 126.9944,
+    keywords: ["이태원", "itaewon"],
+    cam: null,
+  },
+  {
+    type: "landmark",
+    name: "여의도",
+    label: "여의도, 서울",
+    latitude: 37.5219,
+    longitude: 126.9245,
+    keywords: ["여의도", "yeouido"],
+    cam: null,
+  },
+  {
+    type: "landmark",
+    name: "잠실",
+    label: "잠실, 서울",
+    latitude: 37.5133,
+    longitude: 127.1001,
+    keywords: ["잠실", "jamsil"],
+    cam: null,
+  },
+  {
+    type: "landmark",
+    name: "해운대",
+    label: "해운대, 부산",
+    latitude: 35.1587,
+    longitude: 129.1604,
+    keywords: ["해운대", "haeundae"],
+    cam: null,
   },
 ];
 
@@ -125,7 +143,7 @@ function locationId(place) {
 async function geocodeByName(city) {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
     city
-  )}&count=1&language=ko&format=json`;
+  )}&count=1&language=ko&format=json&countryCode=KR`;
   const res = await fetch(url);
   const data = await res.json();
   if (!data.results || data.results.length === 0) return null;
@@ -141,7 +159,7 @@ async function geocodeByName(city) {
 async function geocodeSuggestions(city) {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
     city
-  )}&count=5&language=ko&format=json`;
+  )}&count=5&language=ko&format=json&countryCode=KR`;
   const res = await fetch(url);
   const data = await res.json();
   if (!data.results) return [];
@@ -155,13 +173,14 @@ async function geocodeSuggestions(city) {
   }));
 }
 
-// 도시 지오코더(Open-Meteo)에는 없는 랜드마크(도쿄타워 같은 명소)를 찾기 위한
-// OpenStreetMap Nominatim 폴백이에요. 자동완성(타이핑 중)에는 쓰지 않고,
-// 검색을 실제로 실행했을 때만 한 번 호출해서 요청 빈도를 낮게 유지해요.
+// 도시 지오코더(Open-Meteo)에는 없는 국내 명소(동네, 랜드마크 등)를 찾기 위한
+// OpenStreetMap Nominatim 폴백이에요. countrycodes=kr로 국내 결과만 받아요.
+// 자동완성(타이핑 중)에는 쓰지 않고, 검색을 실제로 실행했을 때만 한 번
+// 호출해서 요청 빈도를 낮게 유지해요.
 async function geocodeLandmark(query) {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
     query
-  )}&format=json&limit=1&namedetails=1&accept-language=ko`;
+  )}&format=json&limit=1&namedetails=1&accept-language=ko&countrycodes=kr`;
   const res = await fetch(url);
   const data = await res.json();
   if (!data || data.length === 0) return null;

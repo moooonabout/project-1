@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>지금 날씨 어때? — 내가 갈 곳의 실제 날씨</title>
-  <meta name="description" content="내가 갈 곳의 실제 지금 날씨를 바로 확인하는 서비스" />
+  <title>지금 날씨 어때? — 우리 동네 실제 날씨</title>
+  <meta name="description" content="국내 동네·명소 단위로 실제 지금 날씨를 바로 확인하는 서비스" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -14,8 +14,8 @@
     </nav>
 
     <div class="hero-content">
-      <h1>내가 갈 곳,<br />지금 진짜 날씨는 어떨까?</h1>
-      <p class="subtitle">숫자 예보 + 실시간 라이브 영상으로 지금 그곳을 바로 확인하세요.</p>
+      <h1>우리 동네,<br />지금 진짜 날씨는 어떨까?</h1>
+      <p class="subtitle">숫자 예보 + 실시간 라이브 영상으로 국내 동네·명소 날씨를 바로 확인하세요.</p>
     </div>
   </header>
 
@@ -26,7 +26,7 @@
           <input
             type="text"
             id="city-input"
-            placeholder="도시 또는 명소를 입력하세요 (예: 서울, 광화문광장, 시부야 스크램블)"
+            placeholder="동네 또는 명소를 입력하세요 (예: 성수동, 해운대, 광화문광장)"
             autocomplete="off"
             required
           />
@@ -34,7 +34,7 @@
         </div>
         <button type="submit" class="btn-primary">날씨 확인</button>
       </form>
-      <p class="search-hint">도시(서울, 도쿄, 뉴욕)는 물론 성수동, 강남, 광화문광장, 도쿄타워 같은 명소 이름으로도 검색할 수 있어요. 자동완성에는 없어도 검색해보세요.</p>
+      <p class="search-hint">시/도(서울, 부산)는 물론 성수동, 해운대, 광화문광장 같은 동네·명소 단위로도 검색할 수 있어요. 자동완성에는 없어도 검색해보세요.</p>
       <div id="search-result" class="result" aria-live="polite"></div>
     </section>
 
@@ -52,7 +52,7 @@
   </main>
 
   <footer class="footer">
-    <p>지금 날씨 어때? · 내가 갈 곳의 실제 지금 날씨 확인하는 서비스</p>
+    <p>지금 날씨 어때? · 국내 동네·명소 단위로 실제 지금 날씨 확인하는 서비스</p>
   </footer>
 
   <script src="script.js"></script>
