@@ -22,15 +22,19 @@
   <main>
     <section class="search-section">
       <form class="search-form" id="search-form">
-        <input
-          type="text"
-          id="city-input"
-          placeholder="도시 이름을 입력하세요 (예: 서울, 도쿄, 뉴욕)"
-          autocomplete="off"
-          required
-        />
+        <div class="search-input-wrap">
+          <input
+            type="text"
+            id="city-input"
+            placeholder="도시 또는 명소를 입력하세요 (예: 서울, 광화문광장, 시부야 스크램블)"
+            autocomplete="off"
+            required
+          />
+          <div id="autocomplete-list" class="autocomplete-list hidden"></div>
+        </div>
         <button type="submit" class="btn-primary">날씨 확인</button>
       </form>
+      <p class="search-hint">도시(서울, 도쿄, 뉴욕)는 물론 성수동, 강남, 광화문광장 같은 명소 단위로도 검색할 수 있어요.</p>
       <div id="search-result" class="result" aria-live="polite"></div>
     </section>
 

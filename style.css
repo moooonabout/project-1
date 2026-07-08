@@ -118,8 +118,13 @@ main {
   gap: 10px;
 }
 
-#city-input {
+.search-input-wrap {
+  position: relative;
   flex: 1 1 260px;
+}
+
+#city-input {
+  width: 100%;
   padding: 11px 16px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -132,6 +137,58 @@ main {
 
 #city-input:focus {
   border-color: var(--accent);
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.ac-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  letter-spacing: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ac-item + .ac-item {
+  border-top: 1px solid var(--border);
+}
+
+.ac-item:hover {
+  background: var(--accent-soft);
+}
+
+.ac-type {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.search-hint {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .result {
@@ -291,6 +348,71 @@ main {
   aspect-ratio: 16 / 9;
   display: block;
   border: none;
+}
+
+.cam-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cam-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.cam-play:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.cam-open-link {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 0.68rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.cam-error-text {
+  display: none;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.cam-embed.thumb-error {
+  background: var(--bg);
+}
+
+.cam-embed.thumb-error .cam-thumb,
+.cam-embed.thumb-error .cam-play {
+  display: none;
+}
+
+.cam-embed.thumb-error .cam-error-text {
+  display: flex;
 }
 
 .cam-label {

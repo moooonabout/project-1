@@ -22,23 +22,100 @@ const WEATHER_CODES = {
   99: ["강한 우박 동반 뇌우", "⛈️"],
 };
 
-// 24/7 공개 라이브 스트림 중 임베드가 허용된 것만 선별했어요.
-// 필요한 지역을 계속 추가할 수 있어요.
-const CURATED_CAMS = [
-  { match: ["서울", "seoul"], videoId: "zuWxsbV-mlA", label: "광화문대로 실시간 라이브" },
-  { match: ["뉴욕", "new york"], videoId: "z-jYdOIKcTQ", label: "타임스퀘어 실시간 라이브" },
+// 도시 + 명소 단위로 미리 등록해둔 위치예요. 검색 자동완성과 실시간 라이브캠 매칭에 쓰여요.
+// cam이 null이면 해당 위치의 라이브 영상은 아직 준비되지 않은 거예요.
+const CURATED_LOCATIONS = [
+  {
+    type: "city",
+    name: "서울",
+    label: "서울, 대한민국",
+    latitude: 37.5665,
+    longitude: 126.978,
+    keywords: ["서울", "seoul"],
+    cam: { videoId: "zuWxsbV-mlA", label: "광화문대로 실시간 라이브" },
+  },
+  {
+    type: "city",
+    name: "도쿄",
+    label: "도쿄, 일본",
+    latitude: 35.6762,
+    longitude: 139.6503,
+    keywords: ["도쿄", "tokyo"],
+    cam: null,
+  },
+  {
+    type: "city",
+    name: "뉴욕",
+    label: "뉴욕, 미국",
+    latitude: 40.7128,
+    longitude: -74.006,
+    keywords: ["뉴욕", "new york", "nyc"],
+    cam: { videoId: "z-jYdOIKcTQ", label: "타임스퀘어 실시간 라이브" },
+  },
+  {
+    type: "landmark",
+    name: "광화문광장",
+    label: "광화문광장, 서울",
+    latitude: 37.5759,
+    longitude: 126.9769,
+    keywords: ["광화문", "광화문광장", "gwanghwamun"],
+    cam: { videoId: "zuWxsbV-mlA", label: "광화문대로 실시간 라이브" },
+  },
+  {
+    type: "landmark",
+    name: "강남",
+    label: "강남, 서울",
+    latitude: 37.4979,
+    longitude: 127.0276,
+    keywords: ["강남", "gangnam"],
+    cam: null,
+  },
+  {
+    type: "landmark",
+    name: "성수동",
+    label: "성수동, 서울",
+    latitude: 37.5445,
+    longitude: 127.0559,
+    keywords: ["성수", "성수동", "seongsu"],
+    cam: null,
+  },
+  {
+    type: "landmark",
+    name: "시부야 스크램블",
+    label: "시부야 스크램블, 도쿄",
+    latitude: 35.6595,
+    longitude: 139.7005,
+    keywords: ["시부야", "shibuya"],
+    cam: null,
+  },
+  {
+    type: "landmark",
+    name: "타임스퀘어",
+    label: "타임스퀘어, 뉴욕",
+    latitude: 40.758,
+    longitude: -73.9855,
+    keywords: ["타임스퀘어", "times square"],
+    cam: { videoId: "z-jYdOIKcTQ", label: "타임스퀘어 실시간 라이브" },
+  },
 ];
 
-const DEFAULT_LOCATION = { name: "서울", admin1: null, country: "대한민국", latitude: 37.5665, longitude: 126.978 };
+const DEFAULT_LOCATION = { name: "서울", label: "서울, 대한민국", latitude: 37.5665, longitude: 126.978 };
 const FAVORITES_KEY = "weather-app-favorites";
 
 function findCam(place) {
   const text = `${place.name || ""} ${place.country || ""}`.toLowerCase();
-  return CURATED_CAMS.find((cam) => cam.match.some((keyword) => text.includes(keyword.toLowerCase())));
+  const match = CURATED_LOCATIONS.find(
+    (loc) => loc.cam && loc.keywords.some((keyword) => text.includes(keyword.toLowerCase()))
+  );
+  return match ? match.cam : null;
+}
+
+function toPlace(loc) {
+  return { name: loc.name, label: loc.label, latitude: loc.latitude, longitude: loc.longitude };
 }
 
 function locationLabel(place) {
-  return [place.name, place.admin1, place.country].filter(Boolean).join(", ");
+  return place.label || [place.name, place.admin1, place.country].filter(Boolean).join(", ");
 }
 
 function locationId(place) {
@@ -53,7 +130,29 @@ async function geocodeByName(city) {
   const data = await res.json();
   if (!data.results || data.results.length === 0) return null;
   const r = data.results[0];
-  return { name: r.name, admin1: r.admin1, country: r.country, latitude: r.latitude, longitude: r.longitude };
+  return {
+    name: r.name,
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(", "),
+    latitude: r.latitude,
+    longitude: r.longitude,
+  };
+}
+
+async function geocodeSuggestions(city) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    city
+  )}&count=5&language=ko&format=json`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!data.results) return [];
+  return data.results.map((r) => ({
+    type: "city",
+    name: r.name,
+    label: [r.name, r.admin1, r.country].filter(Boolean).join(", "),
+    latitude: r.latitude,
+    longitude: r.longitude,
+    cam: undefined,
+  }));
 }
 
 async function reverseGeocode(lat, lon) {
@@ -62,9 +161,10 @@ async function reverseGeocode(lat, lon) {
     const res = await fetch(url);
     const data = await res.json();
     const name = data.city || data.locality || data.principalSubdivision || "내 위치";
-    return { name, admin1: data.principalSubdivision, country: data.countryName, latitude: lat, longitude: lon };
+    const label = [name, data.principalSubdivision, data.countryName].filter(Boolean).join(", ");
+    return { name, country: data.countryName, label, latitude: lat, longitude: lon };
   } catch {
-    return { name: "내 위치", admin1: null, country: null, latitude: lat, longitude: lon };
+    return { name: "내 위치", label: "내 위치", latitude: lat, longitude: lon };
   }
 }
 
@@ -81,21 +181,24 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function weatherRowHtml(place, weather, { showFavButton = false, isFavorited = false, showRemove = false } = {}) {
+function camHtml(cam) {
+  if (!cam) {
+    return `<div class="cam-placeholder">이 지역의 실시간 라이브 영상은 아직 준비되지 않았어요.</div>`;
+  }
+  return `
+    <div class="cam-embed">
+      <img class="cam-thumb" src="https://img.youtube.com/vi/${cam.videoId}/hqdefault.jpg" alt="${escapeHtml(cam.label)}" />
+      <div class="cam-error-text">라이브 영상을 불러올 수 없어요</div>
+      <button type="button" class="cam-play" data-video-id="${cam.videoId}" data-label="${escapeHtml(cam.label)}" aria-label="라이브 영상 재생">▶</button>
+      <div class="cam-label">🔴 ${escapeHtml(cam.label)}</div>
+      <a class="cam-open-link" href="https://www.youtube.com/watch?v=${cam.videoId}" target="_blank" rel="noopener">새 창 ↗</a>
+    </div>
+  `;
+}
+
+function weatherRowHtml(place, weather, { showFavButton = false, isFavorited = false, showRemove = false, cam } = {}) {
   const [desc, emoji] = WEATHER_CODES[weather.weathercode] || ["알 수 없음", "🌡️"];
-  const cam = findCam(place);
-  const camHtml = cam
-    ? `<div class="cam-embed">
-        <iframe
-          src="https://www.youtube.com/embed/${cam.videoId}?autoplay=1&mute=1"
-          title="${escapeHtml(cam.label)}"
-          frameborder="0"
-          allow="autoplay; encrypted-media"
-          allowfullscreen
-        ></iframe>
-        <div class="cam-label">🔴 ${escapeHtml(cam.label)}</div>
-      </div>`
-    : `<div class="cam-placeholder">이 지역의 실시간 라이브 영상은 아직 준비되지 않았어요.</div>`;
+  const resolvedCam = cam !== undefined ? cam : findCam(place);
 
   const favBtn = showFavButton
     ? `<button class="fav-btn ${isFavorited ? "is-fav" : ""}" data-id="${locationId(place)}">
@@ -118,9 +221,34 @@ function weatherRowHtml(place, weather, { showFavButton = false, isFavorited = f
         <div class="desc">${desc} · 풍속 ${weather.windspeed} km/h</div>
         <div class="row-actions">${favBtn}${removeBtn}</div>
       </div>
-      <div class="weather-cam">${camHtml}</div>
+      <div class="weather-cam">${camHtml(resolvedCam)}</div>
     </div>
   `;
+}
+
+function bindCamPlayButtons(container) {
+  container.querySelectorAll(".cam-thumb").forEach((img) => {
+    img.addEventListener("error", () => {
+      img.closest(".cam-embed").classList.add("thumb-error");
+    });
+  });
+  container.querySelectorAll(".cam-play").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const embed = btn.closest(".cam-embed");
+      const id = btn.dataset.videoId;
+      const label = btn.dataset.label;
+      embed.innerHTML = `
+        <iframe
+          src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1"
+          title="${escapeHtml(label)}"
+          frameborder="0"
+          allow="autoplay; encrypted-media"
+          allowfullscreen
+        ></iframe>
+        <div class="cam-label">🔴 ${escapeHtml(label)}</div>
+      `;
+    });
+  });
 }
 
 function getFavorites() {
@@ -179,6 +307,7 @@ async function loadMyLocation() {
           isFavorited: isFavorited(place),
         });
         bindFavButtons(panel, place);
+        bindCamPlayButtons(panel);
       } catch {
         panel.innerHTML = `<p class="error">날씨 정보를 불러오지 못했어요.</p>`;
       }
@@ -200,6 +329,7 @@ async function showMyLocationFallback() {
     `;
     document.getElementById("retry-location").addEventListener("click", loadMyLocation);
     bindFavButtons(panel, DEFAULT_LOCATION);
+    bindCamPlayButtons(panel);
   } catch {
     panel.innerHTML = `<p class="error">날씨 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>`;
   }
@@ -241,6 +371,7 @@ async function renderFavorites() {
   );
 
   container.innerHTML = rows.join("");
+  bindCamPlayButtons(container);
   container.querySelectorAll(".remove-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const remaining = getFavorites().filter((f) => locationId(f) !== btn.dataset.id);
@@ -254,29 +385,125 @@ async function renderFavorites() {
 const searchForm = document.getElementById("search-form");
 const cityInput = document.getElementById("city-input");
 const searchResult = document.getElementById("search-result");
+const autocompleteBox = document.getElementById("autocomplete-list");
 
-searchForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const city = cityInput.value.trim();
-  if (!city) return;
+let autocompleteResults = [];
+let autocompleteTimer = null;
 
+async function renderSearchResult(place, cam) {
   searchResult.innerHTML = `<p class="loading">날씨를 확인하는 중...</p>`;
-
   try {
-    const place = await geocodeByName(city);
-    if (!place) {
-      searchResult.innerHTML = `<p class="error">"${escapeHtml(city)}"을(를) 찾을 수 없어요. 다른 이름으로 시도해보세요.</p>`;
-      return;
-    }
     const weather = await fetchWeather(place.latitude, place.longitude);
     searchResult.innerHTML = weatherRowHtml(place, weather, {
       showFavButton: true,
       isFavorited: isFavorited(place),
+      cam,
     });
     bindFavButtons(searchResult, place);
+    bindCamPlayButtons(searchResult);
   } catch {
     searchResult.innerHTML = `<p class="error">날씨 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>`;
   }
+}
+
+function matchCurated(query) {
+  const q = query.toLowerCase();
+  return CURATED_LOCATIONS.filter(
+    (loc) => loc.name.toLowerCase().includes(q) || loc.keywords.some((k) => k.toLowerCase().includes(q))
+  ).slice(0, 5);
+}
+
+function hideAutocomplete() {
+  autocompleteBox.classList.add("hidden");
+  autocompleteBox.innerHTML = "";
+}
+
+function renderAutocomplete(list) {
+  autocompleteResults = list;
+  if (list.length === 0) {
+    hideAutocomplete();
+    return;
+  }
+  autocompleteBox.innerHTML = list
+    .map(
+      (item, i) => `
+        <button type="button" class="ac-item" data-idx="${i}">
+          <span class="ac-name">${escapeHtml(item.label)}</span>
+          <span class="ac-type">${item.type === "landmark" ? "명소" : "도시"}</span>
+        </button>
+      `
+    )
+    .join("");
+  autocompleteBox.classList.remove("hidden");
+
+  autocompleteBox.querySelectorAll(".ac-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = autocompleteResults[Number(btn.dataset.idx)];
+      hideAutocomplete();
+      cityInput.value = item.name;
+      renderSearchResult({ name: item.name, label: item.label, latitude: item.latitude, longitude: item.longitude }, item.cam);
+    });
+  });
+}
+
+cityInput.addEventListener("input", () => {
+  const query = cityInput.value.trim();
+  clearTimeout(autocompleteTimer);
+
+  if (!query) {
+    hideAutocomplete();
+    return;
+  }
+
+  const localMatches = matchCurated(query).map((loc) => ({
+    type: loc.type,
+    name: loc.name,
+    label: loc.label,
+    latitude: loc.latitude,
+    longitude: loc.longitude,
+    cam: loc.cam,
+  }));
+  renderAutocomplete(localMatches);
+
+  autocompleteTimer = setTimeout(async () => {
+    try {
+      const cityMatches = await geocodeSuggestions(query);
+      const merged = [...localMatches];
+      cityMatches.forEach((c) => {
+        if (!merged.some((m) => m.name === c.name)) merged.push(c);
+      });
+      renderAutocomplete(merged.slice(0, 8));
+    } catch {
+      // 자동완성 실패는 조용히 무시하고 로컬 추천만 유지해요.
+    }
+  }, 300);
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".search-input-wrap")) hideAutocomplete();
+});
+
+searchForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideAutocomplete();
+  const city = cityInput.value.trim();
+  if (!city) return;
+
+  const curated = CURATED_LOCATIONS.find(
+    (loc) => loc.name === city || loc.keywords.includes(city.toLowerCase())
+  );
+  if (curated) {
+    await renderSearchResult(toPlace(curated), curated.cam);
+    return;
+  }
+
+  searchResult.innerHTML = `<p class="loading">날씨를 확인하는 중...</p>`;
+  const place = await geocodeByName(city).catch(() => null);
+  if (!place) {
+    searchResult.innerHTML = `<p class="error">"${escapeHtml(city)}"을(를) 찾을 수 없어요. 다른 이름으로 시도해보세요.</p>`;
+    return;
+  }
+  await renderSearchResult(place, undefined);
 });
 
 // ---------- 초기화 ----------
