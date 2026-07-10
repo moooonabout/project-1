@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>지금 날씨 어때? — 우리 동네 실제 날씨</title>
+  <title>지금 날씨 어때 — 우리 동네 실제 날씨</title>
   <meta name="description" content="국내 동네·명소 단위로 실제 지금 날씨를 바로 확인하는 서비스" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="hero">
     <nav class="nav">
-      <div class="logo">☀️ 지금 날씨 어때?</div>
+      <div class="logo">☀️ 지금 날씨 어때</div>
+      <button type="button" class="settings-btn" id="settings-btn" aria-label="화면 설정">⚙️</button>
     </nav>
 
     <div class="hero-content">
-      <h1>우리 동네,<br />지금 진짜 날씨는 어떨까?</h1>
-      <p class="subtitle">숫자 예보 + 실시간 라이브 영상으로 국내 동네·명소 날씨를 바로 확인하세요.</p>
+      <div class="hero-anim" id="hero-anim" aria-hidden="true"></div>
+      <h1>지금 날씨 어때</h1>
+      <p class="subtitle">일기예보보다 더 정확한 실시간 날씨</p>
     </div>
   </header>
 
-  <main>
-    <section class="search-section">
+  <main id="main-sections">
+    <section class="search-section" data-section="search">
       <form class="search-form" id="search-form">
         <div class="search-input-wrap">
           <input
@@ -34,25 +36,49 @@
         </div>
         <button type="submit" class="btn-primary">날씨 확인</button>
       </form>
-      <p class="search-hint">시/도(서울, 부산)는 물론 성수동, 해운대, 광화문광장 같은 동네·명소 단위로도 검색할 수 있어요. 자동완성에는 없어도 검색해보세요.</p>
       <div id="search-result" class="result" aria-live="polite"></div>
     </section>
 
-    <section class="mylocation-section">
+    <section class="mylocation-section" data-section="mylocation">
       <h2>📍 내 위치</h2>
       <div id="panel-mylocation">
         <div class="panel-loading">위치를 확인하는 중...</div>
       </div>
     </section>
 
-    <section class="favorites-section">
+    <section class="favorites-section" data-section="favorites">
       <h2>⭐ 즐겨찾기</h2>
       <div id="favorites-list"></div>
     </section>
+
+    <section class="feed-section" data-section="feed">
+      <h2>📸 실시간 기록</h2>
+      <form class="feed-form" id="feed-form">
+        <input type="text" id="feed-place-input" placeholder="위치 (예: 성수동)" autocomplete="off" required />
+        <input type="text" id="feed-text-input" placeholder="지금 이곳 날씨는 어때요?" autocomplete="off" required />
+        <label class="feed-photo-btn" for="feed-photo-input">
+          📷
+          <input type="file" id="feed-photo-input" accept="image/*" hidden />
+        </label>
+        <button type="submit" class="btn-primary">남기기</button>
+      </form>
+      <div id="feed-list" class="feed-list"></div>
+    </section>
   </main>
 
+  <div class="settings-overlay hidden" id="settings-overlay">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h3>화면 설정</h3>
+        <button type="button" class="settings-close" id="settings-close" aria-label="닫기">✕</button>
+      </div>
+      <p class="settings-desc">보이는 섹션과 순서를 원하는 대로 바꿔보세요.</p>
+      <ul class="settings-list" id="settings-list"></ul>
+    </div>
+  </div>
+
   <footer class="footer">
-    <p>지금 날씨 어때? · 국내 동네·명소 단위로 실제 지금 날씨 확인하는 서비스</p>
+    <p>지금 날씨 어때 · 국내 동네·명소 단위로 실제 지금 날씨 확인하는 서비스</p>
   </footer>
 
   <script src="script.js"></script>

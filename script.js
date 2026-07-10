@@ -216,6 +216,58 @@ async function fetchWeather(lat, lon) {
   return data.current_weather;
 }
 
+async function fetchAirQuality(lat, lon) {
+  try {
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,uv_index`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.current || null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWeatherBundle(lat, lon) {
+  const [weather, air] = await Promise.all([fetchWeather(lat, lon), fetchAirQuality(lat, lon)]);
+  return { weather, air };
+}
+
+// 국내 환경부 기준 등급이에요.
+function pm10Grade(value) {
+  if (value <= 30) return "좋음";
+  if (value <= 80) return "보통";
+  if (value <= 150) return "나쁨";
+  return "매우 나쁨";
+}
+
+function uvGrade(value) {
+  if (value < 3) return "낮음";
+  if (value < 6) return "보통";
+  if (value < 8) return "높음";
+  if (value < 11) return "매우 높음";
+  return "위험";
+}
+
+function airInfoHtml(air) {
+  if (!air || air.pm10 == null || air.uv_index == null) {
+    return `<div class="air-info air-info-empty">대기질 정보를 불러올 수 없어요.</div>`;
+  }
+  const pm10 = Math.round(air.pm10);
+  const uv = Math.round(air.uv_index * 10) / 10;
+  return `
+    <div class="air-info">
+      <div class="air-item">
+        <span class="air-label">자외선</span>
+        <span class="air-value">${uv} · ${uvGrade(uv)}</span>
+      </div>
+      <div class="air-item">
+        <span class="air-label">미세먼지</span>
+        <span class="air-value">${pm10}㎍/m³ · ${pm10Grade(pm10)}</span>
+      </div>
+    </div>
+  `;
+}
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str || "";
@@ -237,7 +289,7 @@ function camHtml(cam) {
   `;
 }
 
-function weatherRowHtml(place, weather, { showFavButton = false, isFavorited = false, showRemove = false, cam } = {}) {
+function weatherRowHtml(place, weather, air, { showFavButton = false, isFavorited = false, showRemove = false, cam } = {}) {
   const [desc, emoji] = WEATHER_CODES[weather.weathercode] || ["알 수 없음", "🌡️"];
   const resolvedCam = cam !== undefined ? cam : findCam(place);
 
@@ -253,16 +305,19 @@ function weatherRowHtml(place, weather, { showFavButton = false, isFavorited = f
 
   return `
     <div class="weather-row" data-id="${locationId(place)}">
-      <div class="weather-info">
-        <div class="place">${escapeHtml(locationLabel(place))}</div>
-        <div class="temp-line">
-          <span class="emoji">${emoji}</span>
-          <span class="temp">${Math.round(weather.temperature)}°C</span>
-        </div>
-        <div class="desc">${desc} · 풍속 ${weather.windspeed} km/h</div>
-        <div class="row-actions">${favBtn}${removeBtn}</div>
-      </div>
       <div class="weather-cam">${camHtml(resolvedCam)}</div>
+      <div class="weather-info">
+        <div class="weather-info-top">
+          <div class="place">${escapeHtml(locationLabel(place))}</div>
+          <div class="temp-line">
+            <span class="emoji">${emoji}</span>
+            <span class="temp">${Math.round(weather.temperature)}°C</span>
+          </div>
+          <div class="desc">${desc} · 풍속 ${weather.windspeed} km/h</div>
+          <div class="row-actions">${favBtn}${removeBtn}</div>
+        </div>
+        <div class="weather-info-bottom">${airInfoHtml(air)}</div>
+      </div>
     </div>
   `;
 }
@@ -326,6 +381,34 @@ function ensureSeedFavorite() {
   }
 }
 
+// ---------- 히어로 날씨 애니메이션 ----------
+const heroAnim = document.getElementById("hero-anim");
+
+function weatherAnimType(code) {
+  if (code === 0 || code === 1) return "sunny";
+  if (code === 2 || code === 3) return "cloudy";
+  if (code === 45 || code === 48) return "fog";
+  if ([71, 73, 75].includes(code)) return "snow";
+  if ([95, 96, 99].includes(code)) return "storm";
+  return "rain";
+}
+
+const HERO_ANIM_MARKUP = {
+  sunny: `<div class="anim-sun"></div>`,
+  cloudy: `<div class="anim-cloud c1"></div><div class="anim-cloud c2"></div><div class="anim-cloud c3"></div>`,
+  fog: `<div class="anim-fog f1"></div><div class="anim-fog f2"></div>`,
+  rain: Array.from({ length: 12 }, (_, i) => `<span class="anim-drop" style="left:${(i * 8.3).toFixed(1)}%; animation-delay:${(i * 0.13).toFixed(2)}s"></span>`).join(""),
+  snow: Array.from({ length: 14 }, (_, i) => `<span class="anim-flake" style="left:${(i * 7.1).toFixed(1)}%; animation-delay:${(i * 0.22).toFixed(2)}s">❄</span>`).join(""),
+  storm: `<div class="anim-cloud c1"></div><div class="anim-cloud c2"></div><div class="anim-flash"></div>`,
+};
+
+function setHeroAnimation(code) {
+  if (!heroAnim) return;
+  const type = weatherAnimType(code);
+  heroAnim.className = `hero-anim anim-${type}`;
+  heroAnim.innerHTML = HERO_ANIM_MARKUP[type] || "";
+}
+
 // ---------- 내 위치 ----------
 const myLocationPanel = document.getElementById("panel-mylocation");
 
@@ -342,13 +425,14 @@ async function loadMyLocation() {
     async (pos) => {
       try {
         const place = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-        const weather = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-        panel.innerHTML = weatherRowHtml(place, weather, {
+        const { weather, air } = await fetchWeatherBundle(pos.coords.latitude, pos.coords.longitude);
+        panel.innerHTML = weatherRowHtml(place, weather, air, {
           showFavButton: true,
           isFavorited: isFavorited(place),
         });
         bindFavButtons(panel, place);
         bindCamPlayButtons(panel);
+        setHeroAnimation(weather.weathercode);
       } catch {
         panel.innerHTML = `<p class="error">날씨 정보를 불러오지 못했어요.</p>`;
       }
@@ -363,14 +447,15 @@ async function loadMyLocation() {
 async function showMyLocationFallback() {
   const panel = myLocationPanel;
   try {
-    const weather = await fetchWeather(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
+    const { weather, air } = await fetchWeatherBundle(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
     panel.innerHTML = `
       <p class="fallback-note">위치 권한이 없어 기본 도시로 표시하고 있어요. <button class="retry-btn" id="retry-location">다시 시도</button></p>
-      ${weatherRowHtml(DEFAULT_LOCATION, weather, { showFavButton: true, isFavorited: isFavorited(DEFAULT_LOCATION) })}
+      ${weatherRowHtml(DEFAULT_LOCATION, weather, air, { showFavButton: true, isFavorited: isFavorited(DEFAULT_LOCATION) })}
     `;
     document.getElementById("retry-location").addEventListener("click", loadMyLocation);
     bindFavButtons(panel, DEFAULT_LOCATION);
     bindCamPlayButtons(panel);
+    setHeroAnimation(weather.weathercode);
   } catch {
     panel.innerHTML = `<p class="error">날씨 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>`;
   }
@@ -403,8 +488,8 @@ async function renderFavorites() {
   const rows = await Promise.all(
     list.map(async (place) => {
       try {
-        const weather = await fetchWeather(place.latitude, place.longitude);
-        return weatherRowHtml(place, weather, { showRemove: true });
+        const { weather, air } = await fetchWeatherBundle(place.latitude, place.longitude);
+        return weatherRowHtml(place, weather, air, { showRemove: true });
       } catch {
         return `<p class="error">${escapeHtml(locationLabel(place))} 날씨를 불러오지 못했어요.</p>`;
       }
@@ -434,12 +519,13 @@ let autocompleteTimer = null;
 async function renderSearchResult(place, cam) {
   searchResult.innerHTML = `<p class="loading">날씨를 확인하는 중...</p>`;
   try {
-    const weather = await fetchWeather(place.latitude, place.longitude);
-    searchResult.innerHTML = weatherRowHtml(place, weather, {
-      showFavButton: true,
-      isFavorited: isFavorited(place),
-      cam,
-    });
+    const { weather, air } = await fetchWeatherBundle(place.latitude, place.longitude);
+    searchResult.innerHTML =
+      weatherRowHtml(place, weather, air, {
+        showFavButton: true,
+        isFavorited: isFavorited(place),
+        cam,
+      }) + renderFeedMiniFor(place);
     bindFavButtons(searchResult, place);
     bindCamPlayButtons(searchResult);
   } catch {
@@ -455,6 +541,7 @@ function matchCurated(query) {
 }
 
 function hideAutocomplete() {
+  clearTimeout(autocompleteTimer);
   autocompleteBox.classList.add("hidden");
   autocompleteBox.innerHTML = "";
 }
@@ -555,7 +642,235 @@ searchForm.addEventListener("submit", async (e) => {
   searchResult.innerHTML = `<p class="error">"${escapeHtml(city)}"을(를) 찾을 수 없어요. 다른 이름으로 시도해보세요.</p>`;
 });
 
+// ---------- 실시간 기록 ----------
+// 이 기능은 아직 백엔드가 없어서 이 브라우저(기기)에만 저장돼요.
+// 여러 사람이 실제로 공유하는 피드로 쓰려면 서버/DB 연동이 필요해요.
+const FEED_KEY = "weather-app-feed";
+const FEED_MAX_ENTRIES = 60;
+
+function getFeedEntries() {
+  try {
+    return JSON.parse(localStorage.getItem(FEED_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFeedEntries(list) {
+  localStorage.setItem(FEED_KEY, JSON.stringify(list.slice(0, FEED_MAX_ENTRIES)));
+}
+
+function addFeedEntry(entry) {
+  const list = getFeedEntries();
+  list.unshift(entry);
+  saveFeedEntries(list);
+}
+
+function resizeImageFile(file, maxWidth = 480) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function timeAgo(timestamp) {
+  const diffMin = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
+  if (diffMin < 1) return "방금 전";
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.round(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  return `${Math.round(diffHour / 24)}일 전`;
+}
+
+function feedCardHtml(entry) {
+  const photo = entry.photo ? `<img class="feed-photo" src="${entry.photo}" alt="${escapeHtml(entry.place)} 기록 사진" />` : "";
+  return `
+    <div class="feed-card">
+      ${photo}
+      <div class="feed-card-body">
+        <div class="feed-place">📍 ${escapeHtml(entry.place)}</div>
+        <div class="feed-text">${escapeHtml(entry.text)}</div>
+        <div class="feed-time">${timeAgo(entry.timestamp)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderFeed() {
+  const container = document.getElementById("feed-list");
+  const entries = getFeedEntries();
+  if (entries.length === 0) {
+    container.innerHTML = `<p class="empty-state">아직 남겨진 기록이 없어요. 첫 기록을 남겨보세요.</p>`;
+    return;
+  }
+  container.innerHTML = entries.map(feedCardHtml).join("");
+}
+
+function renderFeedMiniFor(place) {
+  const entries = getFeedEntries();
+  const name = (place.name || "").toLowerCase();
+  const matches = entries.filter((entry) => {
+    const entryPlace = entry.place.toLowerCase();
+    return entryPlace.includes(name) || name.includes(entryPlace);
+  });
+  if (matches.length === 0) return "";
+  return `
+    <div class="feed-mini">
+      <div class="feed-mini-title">📸 이 위치의 기록</div>
+      <div class="feed-list">${matches.map(feedCardHtml).join("")}</div>
+    </div>
+  `;
+}
+
+function initFeedForm() {
+  const form = document.getElementById("feed-form");
+  const placeInput = document.getElementById("feed-place-input");
+  const textInput = document.getElementById("feed-text-input");
+  const photoInput = document.getElementById("feed-photo-input");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const place = placeInput.value.trim();
+    const text = textInput.value.trim();
+    if (!place || !text) return;
+
+    let photo = null;
+    if (photoInput.files && photoInput.files[0]) {
+      photo = await resizeImageFile(photoInput.files[0]).catch(() => null);
+    }
+
+    addFeedEntry({ place, text, photo, timestamp: Date.now() });
+    form.reset();
+    renderFeed();
+  });
+}
+
+// ---------- 화면 설정 ----------
+const SECTION_DEFS = [
+  { id: "search", label: "검색" },
+  { id: "mylocation", label: "내 위치" },
+  { id: "favorites", label: "즐겨찾기" },
+  { id: "feed", label: "실시간 기록" },
+];
+const SETTINGS_KEY = "weather-app-section-config";
+
+function getSectionConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    if (Array.isArray(saved) && saved.length === SECTION_DEFS.length) return saved;
+  } catch {
+    // 저장된 설정이 없거나 손상됐으면 기본값을 써요.
+  }
+  return SECTION_DEFS.map((s) => ({ id: s.id, visible: true }));
+}
+
+function saveSectionConfig(config) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(config));
+}
+
+function applySectionConfig() {
+  const config = getSectionConfig();
+  const main = document.getElementById("main-sections");
+  config.forEach((entry) => {
+    const section = main.querySelector(`[data-section="${entry.id}"]`);
+    if (!section) return;
+    main.appendChild(section);
+    section.classList.toggle("section-hidden", !entry.visible);
+  });
+}
+
+function renderSettingsList() {
+  const config = getSectionConfig();
+  const list = document.getElementById("settings-list");
+  list.innerHTML = config
+    .map((entry, i) => {
+      const def = SECTION_DEFS.find((s) => s.id === entry.id);
+      return `
+        <li class="settings-item" data-id="${entry.id}">
+          <label class="settings-checkbox">
+            <input type="checkbox" data-action="toggle" ${entry.visible ? "checked" : ""} />
+            ${def.label}
+          </label>
+          <div class="settings-order-btns">
+            <button type="button" data-action="up" ${i === 0 ? "disabled" : ""} aria-label="위로">▲</button>
+            <button type="button" data-action="down" ${i === config.length - 1 ? "disabled" : ""} aria-label="아래로">▼</button>
+          </div>
+        </li>
+      `;
+    })
+    .join("");
+
+  list.querySelectorAll(".settings-item").forEach((item) => {
+    const id = item.dataset.id;
+    item.querySelector('[data-action="toggle"]').addEventListener("change", (e) => {
+      const cfg = getSectionConfig();
+      const entry = cfg.find((c) => c.id === id);
+      entry.visible = e.target.checked;
+      saveSectionConfig(cfg);
+      applySectionConfig();
+    });
+    const upBtn = item.querySelector('[data-action="up"]');
+    const downBtn = item.querySelector('[data-action="down"]');
+    if (upBtn) {
+      upBtn.addEventListener("click", () => {
+        const cfg = getSectionConfig();
+        const idx = cfg.findIndex((c) => c.id === id);
+        if (idx > 0) {
+          [cfg[idx - 1], cfg[idx]] = [cfg[idx], cfg[idx - 1]];
+          saveSectionConfig(cfg);
+          applySectionConfig();
+          renderSettingsList();
+        }
+      });
+    }
+    if (downBtn) {
+      downBtn.addEventListener("click", () => {
+        const cfg = getSectionConfig();
+        const idx = cfg.findIndex((c) => c.id === id);
+        if (idx < cfg.length - 1) {
+          [cfg[idx + 1], cfg[idx]] = [cfg[idx], cfg[idx + 1]];
+          saveSectionConfig(cfg);
+          applySectionConfig();
+          renderSettingsList();
+        }
+      });
+    }
+  });
+}
+
+function initSettings() {
+  const overlay = document.getElementById("settings-overlay");
+  document.getElementById("settings-btn").addEventListener("click", () => {
+    renderSettingsList();
+    overlay.classList.remove("hidden");
+  });
+  document.getElementById("settings-close").addEventListener("click", () => {
+    overlay.classList.add("hidden");
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.classList.add("hidden");
+  });
+}
+
 // ---------- 초기화 ----------
 ensureSeedFavorite();
+applySectionConfig();
+initSettings();
+initFeedForm();
 loadMyLocation();
 renderFavorites();
+renderFeed();
