@@ -745,6 +745,24 @@ main {
   flex: 1 1 140px;
 }
 
+#feed-location-input {
+  width: 100%;
+}
+
+#feed-location-input:focus {
+  border-color: var(--accent);
+}
+
+.feed-location-status {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: -8px 0 14px;
+}
+
+.feed-location-status:empty {
+  display: none;
+}
+
 .feed-location-btn {
   width: 100%;
   padding: 10px 14px;

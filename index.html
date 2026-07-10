@@ -55,8 +55,8 @@
       <h2>📸 실시간 기록</h2>
       <form class="feed-form" id="feed-form">
         <div class="feed-location-wrap">
-          <button type="button" class="feed-location-btn" id="feed-location-btn">📍 위치 추가</button>
-          <div id="feed-location-popover" class="feed-location-popover hidden"></div>
+          <input type="text" id="feed-location-input" placeholder="📍 위치 검색 (예: 반포대교, 아무 동네나)" autocomplete="off" required />
+          <div id="feed-location-autocomplete" class="autocomplete-list hidden"></div>
         </div>
         <input type="text" id="feed-text-input" placeholder="지금 이곳 날씨는 어때요?" autocomplete="off" required />
         <label class="feed-photo-btn" for="feed-photo-input">
@@ -65,6 +65,7 @@
         </label>
         <button type="submit" class="btn-primary">남기기</button>
       </form>
+      <p id="feed-location-status" class="feed-location-status"></p>
       <div class="feed-filter-bar">
         <button type="button" class="feed-filter-btn is-active" id="feed-filter-nearby" data-mode="nearby">📍 내 주변</button>
         <button type="button" class="feed-filter-btn" id="feed-filter-all" data-mode="all">전체</button>

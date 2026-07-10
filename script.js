@@ -115,6 +115,24 @@ const CURATED_LOCATIONS = [
     keywords: ["해운대", "haeundae"],
     cam: null,
   },
+  {
+    type: "landmark",
+    name: "반포대교",
+    label: "반포대교, 서울",
+    latitude: 37.5133,
+    longitude: 126.997,
+    keywords: ["반포대교", "banpo"],
+    cam: { videoId: "PY-3W9aqatI", label: "반포대교 실시간 라이브" },
+  },
+  {
+    type: "landmark",
+    name: "신림역",
+    label: "신림역, 서울",
+    latitude: 37.4844,
+    longitude: 126.9296,
+    keywords: ["신림", "신림역", "sillim"],
+    cam: { videoId: "9Tk248Er7pk", label: "신림역 실시간 라이브" },
+  },
 ];
 
 const DEFAULT_LOCATION = { name: "서울", label: "서울, 대한민국", latitude: 37.5665, longitude: 126.978 };
@@ -398,9 +416,9 @@ function toggleFavorite(place) {
 
 function ensureSeedFavorite() {
   if (localStorage.getItem(FAVORITES_KEY) === null) {
-    const seongsu = CURATED_LOCATIONS.find((l) => l.name === "성수동");
-    const haeundae = CURATED_LOCATIONS.find((l) => l.name === "해운대");
-    saveFavorites([DEFAULT_LOCATION, toPlace(seongsu), toPlace(haeundae)]);
+    const names = ["성수동", "해운대", "반포대교", "신림역"];
+    const seeded = names.map((n) => toPlace(CURATED_LOCATIONS.find((l) => l.name === n)));
+    saveFavorites([DEFAULT_LOCATION, ...seeded]);
   }
 }
 
@@ -747,6 +765,11 @@ function ensureSeedFeed() {
     { place: "강남", text: "미세먼지가 좀 있는 것 같아요. 마스크 챙기세요", photo: null, minutesAgo: 180 },
     { place: "이태원", text: "해 질 무렵부터 선선해져서 걷기 좋아요", photo: placeholderPhoto(15, "🌇"), minutesAgo: 300 },
     { place: "잠실", text: "구름은 많은데 비 소식은 없어요. 나들이하기 좋은 날이에요", photo: placeholderPhoto(210, "⛅"), minutesAgo: 540 },
+    { place: "반포대교", text: "무지개분수 보러 왔는데 날씨가 딱 도와주네요!", photo: placeholderPhoto(220, "🌈"), minutesAgo: 12 },
+    { place: "서울", text: "오늘 서울 전체적으로 화창해요. 나들이하기 딱 좋은 날씨네요", photo: placeholderPhoto(50, "🏙️"), minutesAgo: 33 },
+    { place: "여의도", text: "한강공원에 사람 많고 산책하기 좋아요", photo: placeholderPhoto(120, "🌳"), minutesAgo: 75 },
+    { place: "신림역", text: "저녁 시간인데도 사람 많고 아직 따뜻해요", photo: null, minutesAgo: 205 },
+    { place: "부산", text: "부산은 오늘 바람이 좀 강하게 부네요. 겉옷 챙기세요", photo: null, minutesAgo: 420 },
   ];
   saveFeedEntries(
     demo.map((d) => ({
@@ -834,40 +857,127 @@ function renderFeedMiniFor(place) {
   `;
 }
 
-let selectedFeedPlace = null;
+// 실시간 기록 작성용 위치 검색이에요. 메인 검색창과 같은 방식(큐레이션 +
+// 국내 도시 지오코딩 + OSM 명소 폴백)을 써서 큐레이션 목록에 없는 곳도
+// 자유롭게 입력할 수 있게 해요.
+let feedSelectedPlace = null;
+let feedAutocompleteResults = [];
+let feedAutocompleteTimer = null;
 
 function initFeedForm() {
   const form = document.getElementById("feed-form");
-  const locationBtn = document.getElementById("feed-location-btn");
-  const popover = document.getElementById("feed-location-popover");
+  const locationInput = document.getElementById("feed-location-input");
+  const autocompleteBox = document.getElementById("feed-location-autocomplete");
+  const statusEl = document.getElementById("feed-location-status");
   const textInput = document.getElementById("feed-text-input");
   const photoInput = document.getElementById("feed-photo-input");
 
-  popover.innerHTML = CURATED_LOCATIONS.map(
-    (loc, i) => `<button type="button" class="feed-location-option" data-idx="${i}">📍 ${escapeHtml(loc.name)}</button>`
-  ).join("");
+  function hideFeedAutocomplete() {
+    clearTimeout(feedAutocompleteTimer);
+    autocompleteBox.classList.add("hidden");
+    autocompleteBox.innerHTML = "";
+  }
 
-  locationBtn.addEventListener("click", () => {
-    popover.classList.toggle("hidden");
-  });
+  function renderFeedAutocomplete(list) {
+    feedAutocompleteResults = list;
+    if (list.length === 0) {
+      hideFeedAutocomplete();
+      return;
+    }
+    autocompleteBox.innerHTML = list
+      .map(
+        (item, i) => `
+          <button type="button" class="ac-item" data-idx="${i}">
+            <span class="ac-name">${escapeHtml(item.label || item.name)}</span>
+            <span class="ac-type">${item.type === "landmark" ? "명소" : "도시"}</span>
+          </button>
+        `
+      )
+      .join("");
+    autocompleteBox.classList.remove("hidden");
 
-  popover.querySelectorAll(".feed-location-option").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selectedFeedPlace = CURATED_LOCATIONS[Number(btn.dataset.idx)];
-      locationBtn.textContent = `📍 ${selectedFeedPlace.name}`;
-      locationBtn.classList.add("is-selected");
-      popover.classList.add("hidden");
+    autocompleteBox.querySelectorAll(".ac-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const item = feedAutocompleteResults[Number(btn.dataset.idx)];
+        feedSelectedPlace = { name: item.name, latitude: item.latitude, longitude: item.longitude };
+        locationInput.value = item.name;
+        hideFeedAutocomplete();
+        statusEl.textContent = "";
+      });
     });
+  }
+
+  locationInput.addEventListener("input", () => {
+    feedSelectedPlace = null;
+    statusEl.textContent = "";
+    const query = locationInput.value.trim();
+    clearTimeout(feedAutocompleteTimer);
+
+    if (!query) {
+      hideFeedAutocomplete();
+      return;
+    }
+
+    const localMatches = matchCurated(query).map((loc) => ({
+      type: loc.type,
+      name: loc.name,
+      label: loc.label,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+    }));
+    renderFeedAutocomplete(localMatches);
+
+    feedAutocompleteTimer = setTimeout(async () => {
+      try {
+        const cityMatches = await geocodeSuggestions(query);
+        const merged = [...localMatches];
+        cityMatches.forEach((c) => {
+          if (!merged.some((m) => m.name === c.name)) merged.push(c);
+        });
+        renderFeedAutocomplete(merged.slice(0, 8));
+      } catch {
+        // 자동완성 실패는 조용히 무시하고 로컬 추천만 유지해요.
+      }
+    }, 300);
   });
 
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".feed-location-wrap")) popover.classList.add("hidden");
+    if (!e.target.closest(".feed-location-wrap")) hideFeedAutocomplete();
   });
+
+  // 자동완성에서 직접 고르지 않고 그냥 입력만 했을 때, 제출 시점에
+  // 큐레이션 → 국내 도시 → 국내 명소 순으로 위치를 찾아봐요.
+  async function resolveTypedLocation(query) {
+    const curated = CURATED_LOCATIONS.find(
+      (loc) => loc.name === query || loc.keywords.includes(query.toLowerCase())
+    );
+    if (curated) return { name: curated.name, latitude: curated.latitude, longitude: curated.longitude };
+
+    const cityPlace = await geocodeByName(query).catch(() => null);
+    if (cityPlace) return { name: cityPlace.name, latitude: cityPlace.latitude, longitude: cityPlace.longitude };
+
+    const landmarkPlace = await geocodeLandmark(query).catch(() => null);
+    if (landmarkPlace) return { name: landmarkPlace.name, latitude: landmarkPlace.latitude, longitude: landmarkPlace.longitude };
+
+    return null;
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    hideFeedAutocomplete();
     const text = textInput.value.trim();
-    if (!selectedFeedPlace || !text) return;
+    const typedLocation = locationInput.value.trim();
+    if (!typedLocation || !text) return;
+
+    let place = feedSelectedPlace && feedSelectedPlace.name === typedLocation ? feedSelectedPlace : null;
+    if (!place) {
+      statusEl.textContent = "위치를 찾는 중...";
+      place = await resolveTypedLocation(typedLocation);
+    }
+    if (!place) {
+      statusEl.textContent = `"${typedLocation}"의 위치를 찾을 수 없어요. 다른 이름으로 시도해보세요.`;
+      return;
+    }
 
     let photo = null;
     if (photoInput.files && photoInput.files[0]) {
@@ -875,17 +985,16 @@ function initFeedForm() {
     }
 
     addFeedEntry({
-      place: selectedFeedPlace.name,
-      latitude: selectedFeedPlace.latitude,
-      longitude: selectedFeedPlace.longitude,
+      place: place.name,
+      latitude: place.latitude,
+      longitude: place.longitude,
       text,
       photo,
       timestamp: Date.now(),
     });
     form.reset();
-    selectedFeedPlace = null;
-    locationBtn.textContent = "📍 위치 추가";
-    locationBtn.classList.remove("is-selected");
+    feedSelectedPlace = null;
+    statusEl.textContent = "";
     renderFeed();
   });
 }
