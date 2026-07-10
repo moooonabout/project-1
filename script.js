@@ -248,6 +248,22 @@ function uvGrade(value) {
   return "위험";
 }
 
+function uvAdvice(value) {
+  if (value < 3) return "☀️ 선크림 없이도 괜찮아요";
+  if (value < 6) return "🧴 SPF30 선크림 발라주세요";
+  if (value < 8) return "🧴 SPF50 선크림은 필수예요";
+  if (value < 11) return "🧴 SPF50+ 선크림, 중간에 덧발라요";
+  return "🚫 가능하면 외출은 피해주세요";
+}
+
+function pm10Advice(value) {
+  const grade = pm10Grade(value);
+  if (grade === "좋음") return "😊 마스크 없이도 괜찮아요";
+  if (grade === "보통") return "😷 민감하신 분은 마스크 챙기세요";
+  if (grade === "나쁨") return "😷 KF80 이상 마스크 권장해요";
+  return "😷 KF94 마스크 + 외출 자제해요";
+}
+
 function airInfoHtml(air) {
   if (!air || air.pm10 == null || air.uv_index == null) {
     return `<div class="air-info air-info-empty">대기질 정보를 불러올 수 없어요.</div>`;
@@ -259,10 +275,12 @@ function airInfoHtml(air) {
       <div class="air-item">
         <span class="air-label">자외선</span>
         <span class="air-value">${uv} · ${uvGrade(uv)}</span>
+        <span class="air-advice">${uvAdvice(uv)}</span>
       </div>
       <div class="air-item">
         <span class="air-label">미세먼지</span>
         <span class="air-value">${pm10}㎍/m³ · ${pm10Grade(pm10)}</span>
+        <span class="air-advice">${pm10Advice(pm10)}</span>
       </div>
     </div>
   `;
@@ -308,13 +326,16 @@ function weatherRowHtml(place, weather, air, { showFavButton = false, isFavorite
       <div class="weather-cam">${camHtml(resolvedCam)}</div>
       <div class="weather-info">
         <div class="weather-info-top">
-          <div class="place">${escapeHtml(locationLabel(place))}</div>
+          <div class="place-row">
+            <div class="place">${escapeHtml(locationLabel(place))}</div>
+            ${favBtn}
+          </div>
           <div class="temp-line">
             <span class="emoji">${emoji}</span>
             <span class="temp">${Math.round(weather.temperature)}°C</span>
           </div>
           <div class="desc">${desc} · 풍속 ${weather.windspeed} km/h</div>
-          <div class="row-actions">${favBtn}${removeBtn}</div>
+          ${removeBtn ? `<div class="row-actions">${removeBtn}</div>` : ""}
         </div>
         <div class="weather-info-bottom">${airInfoHtml(air)}</div>
       </div>
@@ -377,12 +398,16 @@ function toggleFavorite(place) {
 
 function ensureSeedFavorite() {
   if (localStorage.getItem(FAVORITES_KEY) === null) {
-    saveFavorites([DEFAULT_LOCATION]);
+    const seongsu = CURATED_LOCATIONS.find((l) => l.name === "성수동");
+    const haeundae = CURATED_LOCATIONS.find((l) => l.name === "해운대");
+    saveFavorites([DEFAULT_LOCATION, toPlace(seongsu), toPlace(haeundae)]);
   }
 }
 
 // ---------- 히어로 날씨 애니메이션 ----------
 const heroAnim = document.getElementById("hero-anim");
+const heroEl = document.querySelector(".hero");
+const HERO_TYPES = ["sunny", "cloudy", "fog", "rain", "snow", "storm"];
 
 function weatherAnimType(code) {
   if (code === 0 || code === 1) return "sunny";
@@ -394,12 +419,23 @@ function weatherAnimType(code) {
 }
 
 const HERO_ANIM_MARKUP = {
-  sunny: `<div class="anim-sun"></div>`,
-  cloudy: `<div class="anim-cloud c1"></div><div class="anim-cloud c2"></div><div class="anim-cloud c3"></div>`,
-  fog: `<div class="anim-fog f1"></div><div class="anim-fog f2"></div>`,
-  rain: Array.from({ length: 12 }, (_, i) => `<span class="anim-drop" style="left:${(i * 8.3).toFixed(1)}%; animation-delay:${(i * 0.13).toFixed(2)}s"></span>`).join(""),
-  snow: Array.from({ length: 14 }, (_, i) => `<span class="anim-flake" style="left:${(i * 7.1).toFixed(1)}%; animation-delay:${(i * 0.22).toFixed(2)}s">❄</span>`).join(""),
-  storm: `<div class="anim-cloud c1"></div><div class="anim-cloud c2"></div><div class="anim-flash"></div>`,
+  sunny: `<div class="anim-sun"></div><div class="anim-rays"></div>`,
+  cloudy: `<div class="anim-cloud c1"></div><div class="anim-cloud c2"></div><div class="anim-cloud c3"></div><div class="anim-cloud c4"></div>`,
+  fog: `<div class="anim-fog f1"></div><div class="anim-fog f2"></div><div class="anim-fog f3"></div>`,
+  rain: `
+    <div class="anim-cloud c1"></div><div class="anim-cloud c2"></div>
+    ${Array.from({ length: 20 }, (_, i) => `<span class="anim-drop" style="left:${(i * 5).toFixed(1)}%; animation-delay:${(i * 0.09).toFixed(2)}s"></span>`).join("")}
+  `,
+  snow: `
+    <div class="anim-cloud c1"></div><div class="anim-cloud c2"></div>
+    ${Array.from({ length: 20 }, (_, i) => `<span class="anim-flake" style="left:${(i * 5).toFixed(1)}%; animation-delay:${(i * 0.18).toFixed(2)}s; font-size:${0.7 + (i % 3) * 0.25}rem">❄</span>`).join("")}
+  `,
+  storm: `
+    <div class="anim-cloud c1"></div><div class="anim-cloud c2"></div><div class="anim-cloud c3"></div>
+    ${Array.from({ length: 10 }, (_, i) => `<span class="anim-drop" style="left:${(i * 10).toFixed(1)}%; animation-delay:${(i * 0.1).toFixed(2)}s"></span>`).join("")}
+    <div class="anim-bolt">⚡</div>
+    <div class="anim-flash"></div>
+  `,
 };
 
 function setHeroAnimation(code) {
@@ -407,6 +443,10 @@ function setHeroAnimation(code) {
   const type = weatherAnimType(code);
   heroAnim.className = `hero-anim anim-${type}`;
   heroAnim.innerHTML = HERO_ANIM_MARKUP[type] || "";
+  if (heroEl) {
+    HERO_TYPES.forEach((t) => heroEl.classList.remove(`hero-tint-${t}`));
+    heroEl.classList.add(`hero-tint-${type}`);
+  }
 }
 
 // ---------- 내 위치 ----------
@@ -687,6 +727,42 @@ function resizeImageFile(file, maxWidth = 480) {
   });
 }
 
+// 데모용 자리표시 사진이에요. 실제 사진이 아니라 그라데이션 + 이모지로
+// 만든 SVG라서 외부 이미지 없이도 항상 안정적으로 보여요.
+function placeholderPhoto(hue, emoji) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="hsl(${hue},70%,78%)"/>
+        <stop offset="100%" stop-color="hsl(${(hue + 40) % 360},65%,55%)"/>
+      </linearGradient>
+    </defs>
+    <rect width="480" height="320" fill="url(#g)"/>
+    <text x="50%" y="56%" font-size="96" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+// 데모 페이지 용도로 여러 사람이 남긴 것처럼 보이는 예시 기록을 미리 채워둬요.
+// 실제로 아무도 기록을 남기지 않은 첫 방문 상태에서만 채워지고,
+// 한 번이라도 기록이 생기면 이 시드 데이터는 다시 채워지지 않아요.
+function ensureSeedFeed() {
+  if (localStorage.getItem(FEED_KEY) !== null) return;
+  const now = Date.now();
+  const demo = [
+    { place: "성수동", text: "방금 소나기 왔다가 그쳤어요. 우산 없이 나왔다가 홀딱 젖을 뻔했네요 ㅠㅠ", photo: placeholderPhoto(200, "🌦️"), minutesAgo: 6 },
+    { place: "해운대", text: "바닷바람이 진짜 시원해요! 지금 딱 산책하기 좋은 날씨예요", photo: placeholderPhoto(190, "🌊"), minutesAgo: 24 },
+    { place: "광화문광장", text: "사람 엄청 많고 볕이 따가워요. 양산 챙기세요!", photo: null, minutesAgo: 51 },
+    { place: "홍대", text: "밤인데도 후덥지근하네요. 반팔로 충분해요", photo: placeholderPhoto(30, "🌙"), minutesAgo: 95 },
+    { place: "강남", text: "미세먼지가 좀 있는 것 같아요. 마스크 챙기세요", photo: null, minutesAgo: 180 },
+    { place: "이태원", text: "해 질 무렵부터 선선해져서 걷기 좋아요", photo: placeholderPhoto(15, "🌇"), minutesAgo: 300 },
+    { place: "잠실", text: "구름은 많은데 비 소식은 없어요. 나들이하기 좋은 날이에요", photo: placeholderPhoto(210, "⛅"), minutesAgo: 540 },
+  ];
+  saveFeedEntries(
+    demo.map((d) => ({ place: d.place, text: d.text, photo: d.photo, timestamp: now - d.minutesAgo * 60000 }))
+  );
+}
+
 function timeAgo(timestamp) {
   const diffMin = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
   if (diffMin < 1) return "방금 전";
@@ -736,25 +812,51 @@ function renderFeedMiniFor(place) {
   `;
 }
 
+let selectedFeedPlace = null;
+
 function initFeedForm() {
   const form = document.getElementById("feed-form");
-  const placeInput = document.getElementById("feed-place-input");
+  const locationBtn = document.getElementById("feed-location-btn");
+  const popover = document.getElementById("feed-location-popover");
   const textInput = document.getElementById("feed-text-input");
   const photoInput = document.getElementById("feed-photo-input");
 
+  popover.innerHTML = CURATED_LOCATIONS.map(
+    (loc, i) => `<button type="button" class="feed-location-option" data-idx="${i}">📍 ${escapeHtml(loc.name)}</button>`
+  ).join("");
+
+  locationBtn.addEventListener("click", () => {
+    popover.classList.toggle("hidden");
+  });
+
+  popover.querySelectorAll(".feed-location-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedFeedPlace = CURATED_LOCATIONS[Number(btn.dataset.idx)].name;
+      locationBtn.textContent = `📍 ${selectedFeedPlace}`;
+      locationBtn.classList.add("is-selected");
+      popover.classList.add("hidden");
+    });
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".feed-location-wrap")) popover.classList.add("hidden");
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const place = placeInput.value.trim();
     const text = textInput.value.trim();
-    if (!place || !text) return;
+    if (!selectedFeedPlace || !text) return;
 
     let photo = null;
     if (photoInput.files && photoInput.files[0]) {
       photo = await resizeImageFile(photoInput.files[0]).catch(() => null);
     }
 
-    addFeedEntry({ place, text, photo, timestamp: Date.now() });
+    addFeedEntry({ place: selectedFeedPlace, text, photo, timestamp: Date.now() });
     form.reset();
+    selectedFeedPlace = null;
+    locationBtn.textContent = "📍 위치 추가";
+    locationBtn.classList.remove("is-selected");
     renderFeed();
   });
 }
@@ -868,6 +970,7 @@ function initSettings() {
 
 // ---------- 초기화 ----------
 ensureSeedFavorite();
+ensureSeedFeed();
 applySectionConfig();
 initSettings();
 initFeedForm();

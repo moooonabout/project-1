@@ -54,7 +54,10 @@
     <section class="feed-section" data-section="feed">
       <h2>📸 실시간 기록</h2>
       <form class="feed-form" id="feed-form">
-        <input type="text" id="feed-place-input" placeholder="위치 (예: 성수동)" autocomplete="off" required />
+        <div class="feed-location-wrap">
+          <button type="button" class="feed-location-btn" id="feed-location-btn">📍 위치 추가</button>
+          <div id="feed-location-popover" class="feed-location-popover hidden"></div>
+        </div>
         <input type="text" id="feed-text-input" placeholder="지금 이곳 날씨는 어때요?" autocomplete="off" required />
         <label class="feed-photo-btn" for="feed-photo-input">
           📷
