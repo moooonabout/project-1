@@ -65,6 +65,14 @@
         </label>
         <button type="submit" class="btn-primary">남기기</button>
       </form>
+      <div class="feed-filter-bar">
+        <button type="button" class="feed-filter-btn is-active" id="feed-filter-nearby" data-mode="nearby">📍 내 주변</button>
+        <button type="button" class="feed-filter-btn" id="feed-filter-all" data-mode="all">전체</button>
+        <div class="feed-filter-location-wrap">
+          <button type="button" class="feed-filter-btn" id="feed-filter-location-btn">다른 위치 ▾</button>
+          <div id="feed-filter-location-popover" class="feed-location-popover hidden"></div>
+        </div>
+      </div>
       <div id="feed-list" class="feed-list"></div>
     </section>
   </main>

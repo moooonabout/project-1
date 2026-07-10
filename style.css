@@ -811,6 +811,37 @@ main {
   font-size: 1rem;
 }
 
+.feed-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.feed-filter-location-wrap {
+  position: relative;
+}
+
+.feed-filter-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  letter-spacing: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.feed-filter-btn.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-soft);
+}
+
 .feed-list {
   display: flex;
   gap: 14px;
@@ -841,6 +872,12 @@ main {
   font-size: 0.8rem;
   font-weight: 600;
   margin-bottom: 4px;
+}
+
+.feed-distance {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.72rem;
 }
 
 .feed-text {

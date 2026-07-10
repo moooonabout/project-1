@@ -68,7 +68,7 @@ const CURATED_LOCATIONS = [
     latitude: 37.5445,
     longitude: 127.0559,
     keywords: ["성수", "성수동", "seongsu"],
-    cam: null,
+    cam: { videoId: "vUd4w805yNU", label: "성수동 실시간 라이브" },
   },
   {
     type: "landmark",
@@ -450,50 +450,22 @@ function setHeroAnimation(code) {
 }
 
 // ---------- 내 위치 ----------
+// 데모 페이지라 실제 GPS 대신 성수동을 "내 위치"로 고정해두고, 라이브 영상이
+// 확실히 보이는 위치로 보여줘요. 실서비스로 전환할 때 navigator.geolocation
+// 기반 로직으로 되돌리면 돼요.
 const myLocationPanel = document.getElementById("panel-mylocation");
+const MY_LOCATION_DEMO = toPlace(CURATED_LOCATIONS.find((l) => l.name === "성수동"));
 
 async function loadMyLocation() {
   const panel = myLocationPanel;
   panel.innerHTML = `<div class="panel-loading">위치를 확인하는 중...</div>`;
-
-  if (!navigator.geolocation) {
-    await showMyLocationFallback();
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      try {
-        const place = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-        const { weather, air } = await fetchWeatherBundle(pos.coords.latitude, pos.coords.longitude);
-        panel.innerHTML = weatherRowHtml(place, weather, air, {
-          showFavButton: true,
-          isFavorited: isFavorited(place),
-        });
-        bindFavButtons(panel, place);
-        bindCamPlayButtons(panel);
-        setHeroAnimation(weather.weathercode);
-      } catch {
-        panel.innerHTML = `<p class="error">날씨 정보를 불러오지 못했어요.</p>`;
-      }
-    },
-    async () => {
-      await showMyLocationFallback();
-    },
-    { timeout: 8000 }
-  );
-}
-
-async function showMyLocationFallback() {
-  const panel = myLocationPanel;
   try {
-    const { weather, air } = await fetchWeatherBundle(DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude);
-    panel.innerHTML = `
-      <p class="fallback-note">위치 권한이 없어 기본 도시로 표시하고 있어요. <button class="retry-btn" id="retry-location">다시 시도</button></p>
-      ${weatherRowHtml(DEFAULT_LOCATION, weather, air, { showFavButton: true, isFavorited: isFavorited(DEFAULT_LOCATION) })}
-    `;
-    document.getElementById("retry-location").addEventListener("click", loadMyLocation);
-    bindFavButtons(panel, DEFAULT_LOCATION);
+    const { weather, air } = await fetchWeatherBundle(MY_LOCATION_DEMO.latitude, MY_LOCATION_DEMO.longitude);
+    panel.innerHTML = weatherRowHtml(MY_LOCATION_DEMO, weather, air, {
+      showFavButton: true,
+      isFavorited: isFavorited(MY_LOCATION_DEMO),
+    });
+    bindFavButtons(panel, MY_LOCATION_DEMO);
     bindCamPlayButtons(panel);
     setHeroAnimation(weather.weathercode);
   } catch {
@@ -706,6 +678,18 @@ function addFeedEntry(entry) {
   saveFeedEntries(list);
 }
 
+function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const NEARBY_RADIUS_KM = 20;
+
 function resizeImageFile(file, maxWidth = 480) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -746,11 +730,17 @@ function placeholderPhoto(hue, emoji) {
 // 데모 페이지 용도로 여러 사람이 남긴 것처럼 보이는 예시 기록을 미리 채워둬요.
 // 실제로 아무도 기록을 남기지 않은 첫 방문 상태에서만 채워지고,
 // 한 번이라도 기록이 생기면 이 시드 데이터는 다시 채워지지 않아요.
+function locationOf(name) {
+  const loc = CURATED_LOCATIONS.find((l) => l.name === name);
+  return { latitude: loc.latitude, longitude: loc.longitude };
+}
+
 function ensureSeedFeed() {
   if (localStorage.getItem(FEED_KEY) !== null) return;
   const now = Date.now();
   const demo = [
     { place: "성수동", text: "방금 소나기 왔다가 그쳤어요. 우산 없이 나왔다가 홀딱 젖을 뻔했네요 ㅠㅠ", photo: placeholderPhoto(200, "🌦️"), minutesAgo: 6 },
+    { place: "건대입구", text: "성수동 바로 옆인데 여긴 아직 해가 쨍해요", photo: placeholderPhoto(45, "☀️"), minutesAgo: 14, latitude: 37.5403, longitude: 127.0699 },
     { place: "해운대", text: "바닷바람이 진짜 시원해요! 지금 딱 산책하기 좋은 날씨예요", photo: placeholderPhoto(190, "🌊"), minutesAgo: 24 },
     { place: "광화문광장", text: "사람 엄청 많고 볕이 따가워요. 양산 챙기세요!", photo: null, minutesAgo: 51 },
     { place: "홍대", text: "밤인데도 후덥지근하네요. 반팔로 충분해요", photo: placeholderPhoto(30, "🌙"), minutesAgo: 95 },
@@ -759,7 +749,13 @@ function ensureSeedFeed() {
     { place: "잠실", text: "구름은 많은데 비 소식은 없어요. 나들이하기 좋은 날이에요", photo: placeholderPhoto(210, "⛅"), minutesAgo: 540 },
   ];
   saveFeedEntries(
-    demo.map((d) => ({ place: d.place, text: d.text, photo: d.photo, timestamp: now - d.minutesAgo * 60000 }))
+    demo.map((d) => ({
+      place: d.place,
+      text: d.text,
+      photo: d.photo,
+      timestamp: now - d.minutesAgo * 60000,
+      ...(d.latitude != null ? { latitude: d.latitude, longitude: d.longitude } : locationOf(d.place)),
+    }))
   );
 }
 
@@ -772,13 +768,15 @@ function timeAgo(timestamp) {
   return `${Math.round(diffHour / 24)}일 전`;
 }
 
-function feedCardHtml(entry) {
+function feedCardHtml(entry, distanceKm) {
   const photo = entry.photo ? `<img class="feed-photo" src="${entry.photo}" alt="${escapeHtml(entry.place)} 기록 사진" />` : "";
+  const distanceTag =
+    distanceKm != null ? `<span class="feed-distance">${distanceKm < 1 ? "1km 이내" : `${Math.round(distanceKm)}km`}</span>` : "";
   return `
     <div class="feed-card">
       ${photo}
       <div class="feed-card-body">
-        <div class="feed-place">📍 ${escapeHtml(entry.place)}</div>
+        <div class="feed-place">📍 ${escapeHtml(entry.place)} ${distanceTag}</div>
         <div class="feed-text">${escapeHtml(entry.text)}</div>
         <div class="feed-time">${timeAgo(entry.timestamp)}</div>
       </div>
@@ -786,14 +784,38 @@ function feedCardHtml(entry) {
   `;
 }
 
+const feedFilter = { mode: "nearby", location: null };
+
 function renderFeed() {
   const container = document.getElementById("feed-list");
-  const entries = getFeedEntries();
-  if (entries.length === 0) {
+  const allEntries = getFeedEntries();
+
+  if (allEntries.length === 0) {
     container.innerHTML = `<p class="empty-state">아직 남겨진 기록이 없어요. 첫 기록을 남겨보세요.</p>`;
     return;
   }
-  container.innerHTML = entries.map(feedCardHtml).join("");
+
+  let entries = allEntries;
+  let withDistance = false;
+
+  if (feedFilter.mode === "nearby") {
+    withDistance = true;
+    entries = allEntries
+      .map((e) => ({ entry: e, distance: haversineDistanceKm(MY_LOCATION_DEMO.latitude, MY_LOCATION_DEMO.longitude, e.latitude, e.longitude) }))
+      .filter((e) => e.distance <= NEARBY_RADIUS_KM)
+      .sort((a, b) => a.distance - b.distance);
+  } else if (feedFilter.mode === "location") {
+    entries = allEntries.filter((e) => e.place === feedFilter.location).map((e) => ({ entry: e, distance: null }));
+  } else {
+    entries = allEntries.map((e) => ({ entry: e, distance: null }));
+  }
+
+  if (entries.length === 0) {
+    container.innerHTML = `<p class="empty-state">이 조건에 맞는 기록이 아직 없어요.</p>`;
+    return;
+  }
+
+  container.innerHTML = entries.map(({ entry, distance }) => feedCardHtml(entry, withDistance ? distance : null)).join("");
 }
 
 function renderFeedMiniFor(place) {
@@ -831,8 +853,8 @@ function initFeedForm() {
 
   popover.querySelectorAll(".feed-location-option").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedFeedPlace = CURATED_LOCATIONS[Number(btn.dataset.idx)].name;
-      locationBtn.textContent = `📍 ${selectedFeedPlace}`;
+      selectedFeedPlace = CURATED_LOCATIONS[Number(btn.dataset.idx)];
+      locationBtn.textContent = `📍 ${selectedFeedPlace.name}`;
       locationBtn.classList.add("is-selected");
       popover.classList.add("hidden");
     });
@@ -852,12 +874,71 @@ function initFeedForm() {
       photo = await resizeImageFile(photoInput.files[0]).catch(() => null);
     }
 
-    addFeedEntry({ place: selectedFeedPlace, text, photo, timestamp: Date.now() });
+    addFeedEntry({
+      place: selectedFeedPlace.name,
+      latitude: selectedFeedPlace.latitude,
+      longitude: selectedFeedPlace.longitude,
+      text,
+      photo,
+      timestamp: Date.now(),
+    });
     form.reset();
     selectedFeedPlace = null;
     locationBtn.textContent = "📍 위치 추가";
     locationBtn.classList.remove("is-selected");
     renderFeed();
+  });
+}
+
+function initFeedFilter() {
+  const nearbyBtn = document.getElementById("feed-filter-nearby");
+  const allBtn = document.getElementById("feed-filter-all");
+  const locationBtn = document.getElementById("feed-filter-location-btn");
+  const popover = document.getElementById("feed-filter-location-popover");
+  const pillButtons = [nearbyBtn, allBtn, locationBtn];
+
+  function setActivePill(activeBtn) {
+    pillButtons.forEach((btn) => btn.classList.toggle("is-active", btn === activeBtn));
+  }
+
+  popover.innerHTML = CURATED_LOCATIONS.map(
+    (loc, i) => `<button type="button" class="feed-location-option" data-idx="${i}">📍 ${escapeHtml(loc.name)}</button>`
+  ).join("");
+
+  nearbyBtn.addEventListener("click", () => {
+    feedFilter.mode = "nearby";
+    feedFilter.location = null;
+    locationBtn.textContent = "다른 위치 ▾";
+    setActivePill(nearbyBtn);
+    renderFeed();
+  });
+
+  allBtn.addEventListener("click", () => {
+    feedFilter.mode = "all";
+    feedFilter.location = null;
+    locationBtn.textContent = "다른 위치 ▾";
+    setActivePill(allBtn);
+    renderFeed();
+  });
+
+  locationBtn.addEventListener("click", () => {
+    popover.classList.toggle("hidden");
+  });
+
+  popover.querySelectorAll(".feed-location-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = CURATED_LOCATIONS[Number(btn.dataset.idx)].name;
+      feedFilter.mode = "location";
+      feedFilter.location = name;
+      locationBtn.textContent = `📍 ${name}`;
+      popover.classList.add("hidden");
+      setActivePill(locationBtn);
+      renderFeed();
+    });
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".feed-filter-location-wrap")) popover.classList.add("hidden");
   });
 }
 
@@ -974,6 +1055,7 @@ ensureSeedFeed();
 applySectionConfig();
 initSettings();
 initFeedForm();
+initFeedFilter();
 loadMyLocation();
 renderFavorites();
 renderFeed();
