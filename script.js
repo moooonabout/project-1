@@ -757,8 +757,12 @@ function ensureSeedFeed() {
   if (localStorage.getItem(FEED_KEY) !== null) return;
   const now = Date.now();
   const demo = [
-    { place: "성수동", text: "방금 소나기 왔다가 그쳤어요. 우산 없이 나왔다가 홀딱 젖을 뻔했네요 ㅠㅠ", photo: placeholderPhoto(200, "🌦️"), minutesAgo: 6 },
+    { place: "성수동", text: "방금 소나기 왔다가 그쳤어요. 우산 없이 나왔다가 홀딱 젖을 뻔했네요 ㅠㅠ", photo: placeholderPhoto(200, "🌦️"), minutesAgo: 3 },
+    { place: "서울숲", text: "산책하기 딱 좋은 날씨예요! 사람도 많고 활기차네요", photo: placeholderPhoto(140, "🌳"), minutesAgo: 9, latitude: 37.5443, longitude: 127.0374 },
+    { place: "뚝섬한강공원", text: "한강 바람이 선선해요. 돗자리 깔고 놀기 좋아요", photo: placeholderPhoto(205, "🧺"), minutesAgo: 17, latitude: 37.5297, longitude: 127.0637 },
+    { place: "왕십리", text: "여긴 아직 볕이 남아있어서 따뜻해요", photo: placeholderPhoto(35, "🌤️"), minutesAgo: 25, latitude: 37.5612, longitude: 127.0367 },
     { place: "건대입구", text: "성수동 바로 옆인데 여긴 아직 해가 쨍해요", photo: placeholderPhoto(45, "☀️"), minutesAgo: 14, latitude: 37.5403, longitude: 127.0699 },
+    { place: "자양동", text: "구름이 좀 껴서 선선한 편이에요. 걷기 좋아요", photo: null, minutesAgo: 41, latitude: 37.535, longitude: 127.07 },
     { place: "해운대", text: "바닷바람이 진짜 시원해요! 지금 딱 산책하기 좋은 날씨예요", photo: placeholderPhoto(190, "🌊"), minutesAgo: 24 },
     { place: "광화문광장", text: "사람 엄청 많고 볕이 따가워요. 양산 챙기세요!", photo: null, minutesAgo: 51 },
     { place: "홍대", text: "밤인데도 후덥지근하네요. 반팔로 충분해요", photo: placeholderPhoto(30, "🌙"), minutesAgo: 95 },
